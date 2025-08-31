@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: gateway-config
+data:
+    # Server Configuration
+    SERVER_HOST: "0.0.0.0"
+    SERVER_PORT: "8000"
+    DEBUG: "false"
+
+    # MongoDB Configuration
+    MONGO_HOST: "host.minikube.internal"
+    MONGO_PORT: "27017"
+    MONGO_DATABASE: "gateway_db"
+
+    # RabbitMQ Configuration
+    RABBITMQ_HOST: "host.minikube.internal"
+    RABBITMQ_PORT: "5672"
+    RABBITMQ_QUEUE: "video"
+
+    # Auth Service Configuration
+    AUTH_SVC_ADDR: "auth:5000"
+    AUTH_SVC_HOST: "auth"
+    AUTH_SVC_PORT: "5000"
+
+    # JWT Configuration
+    JWT_ALGORITHM: "HS256"
+    JWT_EXPIRATION_HOURS: "24"
+
+    # File Upload Configuration
+    MAX_CONTENT_LENGTH: "104857600" # 100MB
+    ALLOWED_EXTENSIONS: "mp4,avi,mov,mkv,wmv,flv,webm,m4v"
+
+    # Application Settings
+    FLASK_ENV: "production"
+    PYTHONUNBUFFERED: "1"

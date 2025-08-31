@@ -1,0 +1,52 @@
+services:
+    auth_db:
+        image: mysql:8.0
+        container_name: mysql_db
+        restart: unless-stopped
+        network_mode: host
+        environment:
+            MYSQL_ROOT_PASSWORD: password
+            MYSQL_DATABASE: auth_db
+            MYSQL_USER: piush
+            MYSQL_PASSWORD: password
+        volumes:
+            - mysql_data:/var/lib/mysql
+            - ./.mysql/init:/docker-entrypoint-initdb.d
+        ports:
+            - "3306:3306"
+
+    mongodb:
+        image: mongo:7.0
+        container_name: mongodb
+        restart: unless-stopped
+        network_mode: host
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: piush
+            MONGO_INITDB_ROOT_PASSWORD: password
+            MONGO_INITDB_DATABASE: gateway_db
+        volumes:
+            - mongodb_data:/data/db
+        ports:
+            - "27017:27017"
+
+    rabbitmq:
+        image: rabbitmq:3.12-management
+        container_name: rabbitmq
+        restart: unless-stopped
+        network_mode: host
+        environment:
+            RABBITMQ_DEFAULT_USER: piush
+            RABBITMQ_DEFAULT_PASS: password
+        volumes:
+            - rabbitmq_data:/var/lib/rabbitmq
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+
+volumes:
+    mysql_data:
+        driver: local
+    mongodb_data:
+        driver: local
+    rabbitmq_data:
+        driver: local
