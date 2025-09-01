@@ -1,20 +1,23 @@
-import jwt, datetime, os
+import jwt, datetime, os, logging
 from flask import Flask, request, jsonify, Response
 from flask_mysqldb import MySQL
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # ===================================================================================================
 # Configurations
 # ===================================================================================================
 app = Flask(__name__)
-mysql = MySQL(app)
 
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST', 'localhost')
 app.config['MYSQL_USER'] = os.getenv('MYSQL_USER', 'demo_user')
 app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD', 'secure_password')
-app.config['MYSQL_DB'] = os.getenv('MYSQL_DB', 'some_db')
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your_secret_key')
+app.config['MYSQL_DB'] = os.getenv('MYSQL_DB', 'auth_db')
+app.config['SECRET_KEY'] = os.getenv('JWT_SECRET', 'your_secret_key')
 
-
+mysql = MySQL(app)
 # ===================================================================================================
 # Routes
 #   - POST  /login      {Basic Authorization}
@@ -23,30 +26,46 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your_secret_key')
 # ===================================================================================================
 @app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if not auth or not auth.username or not auth.password:
-        return Response('Please provide proper authorization headers', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+    try:
+        logger.info("Login attempt received")
+        auth = request.authorization
+        if not auth or not auth.username or not auth.password:
+            logger.warning("Missing authorization headers")
+            return Response('Please provide proper authorization headers', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
-    if not hasattr(mysql, 'connection') or mysql.connection is None:
-        return Response('Database connection error', 500)
+        logger.info(f"Login attempt for user: {auth.username}")
 
-    cursor = mysql.connection.cursor()
-    res = cursor.execute("SELECT * FROM users WHERE email=%s", (auth.username,))
+        if not hasattr(mysql, 'connection') or mysql.connection is None:
+            logger.error("Database connection is None")
+            return Response('Database connection error', 500)
 
-    if res > 0:
-        user_row = cursor.fetchone()
-        email, password =  user_row[1], user_row[2]
+        cursor = mysql.connection.cursor()
+        logger.debug(f"Executing query for user: {auth.username}")
+        res = cursor.execute("SELECT * FROM users WHERE email=%s", (auth.username,))
+        logger.debug(f"Query returned {res} rows")
 
-        if auth.username != email or auth.password != password:
-            cursor.close()
-            return Response('Email or password is incorrect', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+        if res > 0:
+            user_row = cursor.fetchone()
+            email, password = user_row[1], user_row[2]
+            logger.debug(f"Found user: {email}")
+
+            if auth.username != email or auth.password != password:
+                logger.warning(f"Invalid credentials for user: {auth.username}")
+                cursor.close()
+                return Response('Email or password is incorrect', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+            else:
+                logger.info(f"Creating token for user: {email}")
+                token = create_token(email, app.config['SECRET_KEY'], True)
+                cursor.close()
+                logger.info("Login successful")
+                return token
         else:
-            token = create_token(email, app.config['SECRET_KEY'], True)
+            logger.warning(f"User not found: {auth.username}")
             cursor.close()
-            return token
-    else:
-        cursor.close()
-        return Response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+            return Response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+    except Exception as e:
+        logger.error(f"Unexpected error in login: {e}")
+        return Response('Internal server error', 500)
 
 @app.route('/me', methods=['GET'])
 def me():
@@ -63,7 +82,26 @@ def me():
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'OK'})
+    try:
+        # Test database connection
+        if hasattr(mysql, 'connection') and mysql.connection is not None:
+            cursor = mysql.connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.close()
+            db_status = "connected"
+        else:
+            db_status = "disconnected"
+    except Exception as e:
+        logger.error(f"Health check DB error: {e}")
+        db_status = f"error: {str(e)}"
+
+    return jsonify({
+        'status': 'OK',
+        'database': db_status,
+        'mysql_host': app.config['MYSQL_HOST'],
+        'mysql_user': app.config['MYSQL_USER'],
+        'mysql_db': app.config['MYSQL_DB']
+    })
 
 # ===================================================================================================
 # Helper methods

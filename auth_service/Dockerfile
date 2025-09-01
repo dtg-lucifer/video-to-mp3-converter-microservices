@@ -4,9 +4,9 @@ FROM python:3.13-slim
 # Install system dependencies required for MySQL client
 RUN apt-get update \
     && apt-get install -y \
-        pkg-config \
-        default-libmysqlclient-dev \
-        build-essential \
+    pkg-config \
+    default-libmysqlclient-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Set work directory
@@ -20,7 +20,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy application code
 COPY server.py .
 COPY init.sql .
-COPY gunicorn.conf.py .
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser \
@@ -31,4 +30,4 @@ USER appuser
 EXPOSE 5000
 
 # Command to run the application
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "server:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "server:app"]

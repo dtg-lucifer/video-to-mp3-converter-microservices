@@ -1,8 +1,8 @@
-CREATE USER 'piush'@'localhost' IDENTIFIED BY 'AuthPass123!';
+CREATE USER 'piush'@'%' IDENTIFIED BY 'AuthPass123!';
 
 CREATE DATABASE auth_db;
 
-GRANT ALL PRIVILEGES ON auth_db.* TO 'piush'@'localhost';
+GRANT ALL PRIVILEGES ON auth_db.* TO 'piush'@'%';
 
 USE auth_db;
 

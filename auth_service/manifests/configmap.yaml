@@ -5,4 +5,4 @@ metadata:
 data:
     MYSQL_HOST: host.minikube.internal
     MYSQL_PORT: "3306"
-    MYSQL_USER: piush
+    MYSQL_USER: piush2
