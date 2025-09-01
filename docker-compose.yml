@@ -29,24 +29,8 @@ services:
         ports:
             - "27017:27017"
 
-    rabbitmq:
-        image: rabbitmq:3.12-management
-        container_name: rabbitmq
-        restart: unless-stopped
-        network_mode: host
-        environment:
-            RABBITMQ_DEFAULT_USER: piush
-            RABBITMQ_DEFAULT_PASS: password
-        volumes:
-            - rabbitmq_data:/var/lib/rabbitmq
-        ports:
-            - "5672:5672"
-            - "15672:15672"
-
 volumes:
     mysql_data:
         driver: local
     mongodb_data:
-        driver: local
-    rabbitmq_data:
         driver: local

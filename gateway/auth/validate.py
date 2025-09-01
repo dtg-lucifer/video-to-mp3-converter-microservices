@@ -17,7 +17,7 @@ def token(request: Request) -> tuple[str | None, tuple[str | None, int] | None]:
     if not token:
         return None, ("Token is missing", 401)
 
-    response = requests.post(
+    response = requests.get(
         f"http://{os.environ.get('AUTH_SVC_ADDR')}/me",
         headers={"Authorization": f"Bearer {token}"}
     )

@@ -13,7 +13,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Copy application code
 COPY server.py .
-COPY gunicorn.conf.py .
 COPY auth/ ./auth/
 COPY storage/ ./storage/
 
@@ -26,4 +25,4 @@ USER appuser
 EXPOSE 8000
 
 # Command to run the application
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "server:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "server:app"]

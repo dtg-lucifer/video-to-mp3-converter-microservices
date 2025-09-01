@@ -14,13 +14,13 @@ data:
     MONGO_DATABASE: "gateway_db"
 
     # RabbitMQ Configuration
-    RABBITMQ_HOST: "host.minikube.internal"
+    RABBITMQ_HOST: "rabbitmq"
     RABBITMQ_PORT: "5672"
     RABBITMQ_QUEUE: "video"
 
     # Auth Service Configuration
-    AUTH_SVC_ADDR: "auth:5000"
-    AUTH_SVC_HOST: "auth"
+    AUTH_SVC_ADDR: "auth-service:5000"
+    AUTH_SVC_HOST: "auth-service"
     AUTH_SVC_PORT: "5000"
 
     # JWT Configuration

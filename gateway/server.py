@@ -1,16 +1,17 @@
-import os, gridfs, pika, json
-from flask import Flask, request, jsonify, Response
-from typing import Union, Tuple
+import os, gridfs, pika, json, logging
+from flask import Flask, request, jsonify
+from typing import Tuple
 from flask_pymongo import PyMongo
 from auth import validate, access
 from storage import util
 
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
 app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://piush:password@host.minikube.internal:27017/gateway_db")
-app.config["RABBITMQ_HOST"] = os.getenv("RABBITMQ_HOST", "host.minikube.internal")
-app.config["RABBITMQ_PORT"] = int(os.getenv("RABBITMQ_PORT", 5672))
-app.config["RABBITMQ_USER"] = os.getenv("RABBITMQ_USER", "piush")
-app.config["RABBITMQ_PASSWORD"] = os.getenv("RABBITMQ_PASSWORD", "password")
+app.config["RABBITMQ_HOST"] = os.getenv("RABBITMQ_HOST", "rabbitmq")
 
 mongo = PyMongo(app)
 
@@ -24,11 +25,6 @@ try:
     conn = pika.BlockingConnection(
         pika.ConnectionParameters(
             host=app.config["RABBITMQ_HOST"],
-            port=app.config["RABBITMQ_PORT"],
-            credentials=pika.PlainCredentials(
-                app.config["RABBITMQ_USER"],
-                app.config["RABBITMQ_PASSWORD"]
-            ),
             heartbeat=600,
             blocked_connection_timeout=300,
         )
@@ -45,15 +41,23 @@ except Exception as e:
 
 @app.route('/login', methods=['POST'])
 def login() -> Tuple[str, int]:
-    token, err = access.login(request)
+    try:
+        logger.info("Login attempt received")
+        token, err = access.login(request)
 
-    if not err and token:
-        return token, 200
-    else:
-        if err:
-            return str(err[0]), err[1]
+        if not err and token:
+            logger.info("Login successful")
+            return token, 200
         else:
-            return "Unknown error", 500
+            if err:
+                logger.error(f"Login failed: {err[0]} (status: {err[1]})")
+                return str(err[0]), err[1]
+            else:
+                logger.error("Login failed with unknown error")
+                return "Unknown error", 500
+    except Exception as e:
+        logger.error(f"Unexpected error in login route: {e}")
+        return f"Internal server error: {str(e)}", 500
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -97,6 +101,26 @@ def health():
         "rabbitmq": "connected" if channel else "disconnected"
     }
     return jsonify(status), 200
+
+@app.route("/test-auth", methods=["GET"])
+def test_auth():
+    """Test auth service connectivity"""
+    import requests
+    auth_service_url = f"http://{os.environ.get('AUTH_SVC_ADDR')}/health"
+    try:
+        response = requests.get(auth_service_url, timeout=5)
+        return jsonify({
+            "auth_service_url": auth_service_url,
+            "status_code": response.status_code,
+            "response": response.text,
+            "connectivity": "success"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "auth_service_url": auth_service_url,
+            "error": str(e),
+            "connectivity": "failed"
+        }), 500
 
 # Graceful shutdown
 import atexit

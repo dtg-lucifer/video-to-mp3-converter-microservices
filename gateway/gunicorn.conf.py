@@ -1,12 +1,12 @@
-# Gunicorn configuration file
-import multiprocessing
+# Gunicorn configuration file for Kubernetes deployment
+# Using single worker since Kubernetes handles horizontal scaling
 
 # Server socket
 bind = "0.0.0.0:8000"
 backlog = 2048
 
-# Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
+# Worker processes - single worker for Kubernetes scaling
+workers = 1
 worker_class = "sync"
 worker_connections = 1000
 timeout = 120
@@ -20,3 +20,9 @@ max_requests_jitter = 100
 accesslog = "-"
 errorlog = "-"
 loglevel = "info"
+
+# Preload application for better performance with single worker
+preload_app = True
+
+# Graceful shutdown
+graceful_timeout = 30
