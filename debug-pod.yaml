@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: notification-debug
+  labels:
+    app: notification-debug
+spec:
+  containers:
+  - name: notification-debug
+    image: devpiush/python-microservice-notification:latest
+    command: ["sleep", "3600"]
+    envFrom:
+    - configMapRef:
+        name: notification-configmap
+    - secretRef:
+        name: notification-secret
+    volumeMounts:
+    - name: test-script
+      mountPath: /app/test_consumer.py
+      subPath: test_consumer.py
+  volumes:
+  - name: test-script
+    configMap:
+      name: notification-test
+      defaultMode: 0755
+  restartPolicy: Never

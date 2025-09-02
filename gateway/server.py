@@ -1,24 +1,29 @@
+from flask.wrappers import Response
 import os, gridfs, pika, json, logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from typing import Tuple
 from flask_pymongo import PyMongo
 from auth import validate, access
 from storage import util
+from bson.objectid import ObjectId
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://piush:password@host.minikube.internal:27017/gateway_db")
 app.config["RABBITMQ_HOST"] = os.getenv("RABBITMQ_HOST", "rabbitmq")
 
-mongo = PyMongo(app)
+mongo = PyMongo(app, uri=os.getenv("MONGO_URI", "mongodb://piush:password@host.minikube.internal:27017/gateway_db?authSource=admin"))
+mongo_mp3 = PyMongo(app, uri=os.getenv("MONGO_MP3_URI", "mongodb://piush:password@host.minikube.internal:27017/mp3?authSource=admin"))
 
 if mongo.db == None:
     raise Exception("Could not connect to MongoDB")
+if mongo_mp3.db == None:
+    raise Exception("Could not connect to MongoDB")
 
 fs = gridfs.GridFS(mongo.db)
+fs_mp3 = gridfs.GridFS(mongo_mp3.db)
 
 # Initialize RabbitMQ connection and channel
 try:
@@ -89,8 +94,34 @@ def upload():
         return "Unauthorized", 403
 
 @app.route("/download", methods=["GET"])
-def download() -> Tuple[str, int]:
-    return "Download endpoint not implemented", 501
+def download() -> Tuple[str | Response, int]:
+    token, err = validate.token(request)
+    access_data = json.loads(token) if token else None
+
+    if err:
+        return str(err[0]), err[1]
+
+    if not access_data:
+        return "Unknown error", 500
+
+    # Check if RabbitMQ is available
+    if not channel:
+        return "Message queue service unavailable", 503
+
+    if access_data["is_admin"]:
+        fid_string = request.args.get("fid")
+        if not fid_string:
+            return "fid is required", 400
+
+        try:
+            out = fs_mp3.get(ObjectId(fid_string))
+            return send_file(out, download_name=f"{fid_string}.mp3", as_attachment=True), 200
+        except Exception as e:
+            print(f" [!] Error: {e}")
+            return f"Could not retrieve file: {str(e)}", 500
+
+    return "Permission denied", 403
+
 
 @app.route("/health", methods=["GET"])
 def health():
